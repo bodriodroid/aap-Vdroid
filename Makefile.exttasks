@@ -20,4 +20,4 @@ $(JUCE_DIR)/.stamp-vital-modules: $(PWD)/juce-6.1.4-diff-vital-modules.patch
 
 .PHONY:
 replace-app-build-gradle:
-	cp apps/override.app.build.gradle apps/vital/plugin/builds/Android/app/build.gradle
+	cp apps/override.app.build.gradle $(ANDROID_DIR)/app/build.gradle
