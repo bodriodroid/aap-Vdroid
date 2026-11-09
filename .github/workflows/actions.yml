@@ -29,7 +29,7 @@ jobs:
           libgl1-mesa-dev libasound2-dev ninja-build
     - name: Install pinned Android toolchain
       run: |
-        sdkmanager "platforms;android-37" "build-tools;35.0.1" \
+        sdkmanager "platforms;android-37.0" "build-tools;35.0.1" \
           "ndk;29.0.14206865" "cmake;3.22.1"
     - name: Build Android distribution
       run: xvfb-run -a make build dist NDK_VERSION=29.0.14206865
