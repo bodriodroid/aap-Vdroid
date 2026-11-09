@@ -6,5 +6,7 @@ on:
 
 jobs:
   build-dist:
-    # note that usually we recommend to use versioned reference. We do not keep compatibility across commits.
-    uses: atsushieno/aap-juce/.github/workflows/build-dist-with-projucer.yml@main
+    permissions:
+      contents: write
+    # Match the pinned build tooling instead of following upstream main.
+    uses: atsushieno/aap-juce/.github/workflows/build-dist-with-projucer.yml@f107d68e581f634a1b6bcbd30e4c4100c652bd16

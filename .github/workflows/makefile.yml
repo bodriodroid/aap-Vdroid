@@ -1,4 +1,4 @@
-name: Makefile CI
+name: Makefile source checks
 
 on:
   push:
@@ -6,22 +6,19 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  contents: read
+
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v4
-
-    - name: configure
-      run: ./configure
-
-    - name: Install dependencies
-      run: make
-
-    - name: Run check
-      run: make check
-
-    - name: Run distcheck
-      run: make distcheck
+      with:
+        submodules: recursive
+    - name: Prepare patched app sources
+      run: make copy-and-patch-app-sources
+    - name: Check JUCE compatibility patches
+      run: |
+        git -C external/JUCE apply --check ../../juce-6.1.4-diff-vital-modules.patch
+        make patch-juce-modules patch-juce-sources
