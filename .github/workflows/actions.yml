@@ -4,7 +4,52 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   build-dist:
-    # note that usually we recommend to use versioned reference. We do not keep compatibility across commits.
-    uses: atsushieno/aap-juce/.github/workflows/build-dist-with-projucer.yml@main
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - uses: actions/setup-java@v4
+      with:
+        java-version: 17
+        distribution: temurin
+    - uses: android-actions/setup-android@v3
+      with:
+        packages: platform-tools
+    - name: Install native build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y xvfb libfreetype6-dev libcurl4-openssl-dev \
+          libx11-dev libxext-dev libxinerama-dev libxrandr-dev libxcursor-dev \
+          libgl1-mesa-dev libasound2-dev ninja-build
+    - name: Install pinned Android toolchain
+      run: |
+        sdkmanager "platforms;android-37.0" "build-tools;35.0.1" \
+          "ndk;29.0.14206865" "cmake;3.22.1"
+    - name: Build Android distribution
+      run: xvfb-run -a make build dist NDK_VERSION=29.0.14206865
+    - uses: actions/upload-artifact@v4
+      with:
+        name: dist
+        path: dist
+        if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build-dist
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: dist
+        path: dist
+    - uses: ncipollo/release-action@v1
+      with:
+        artifacts: dist/*

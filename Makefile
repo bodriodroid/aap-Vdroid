@@ -1,5 +1,10 @@
 PWD=$(shell pwd)
 
+ifeq ($(shell uname -s),Linux)
+# JUCE 6.1.4 relies on a transitive <utility> include removed in newer GCC.
+export CPPFLAGS += -include utility
+endif
+
 # path to aap-juce directory.
 AAP_JUCE_DIR=$(PWD)/external/aap-juce
 
