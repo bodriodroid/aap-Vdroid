@@ -17,7 +17,9 @@ jobs:
       with:
         submodules: recursive
     - name: Prepare patched app sources
-      run: make copy-and-patch-app-sources
+      run: |
+        git -C external/vital apply --check ../../apps/vitaloid-aap.patch
+        make copy-and-patch-app-sources
     - name: Check JUCE compatibility patches
       run: |
         git -C external/JUCE apply --check ../../juce-6.1.4-diff-vital-modules.patch
