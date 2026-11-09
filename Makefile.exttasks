@@ -1,19 +1,22 @@
 
 
 .PHONY:
-replace-juce-modules: overwrite-juce-modules patch-juce-modules
+replace-juce-modules: overwrite-juce-modules
 
 .PHONY:
-overwrite-juce-modules:
+overwrite-juce-modules: patch-juce-modules
 	for moddir in $(shell ls external/vital/third_party/JUCE/modules/) ; do \
 		echo "$${moddir}" ; \
 		rm -rf apps/vital/third_party/JUCE/modules/$${moddir} ; \
-		cp -R external/JUCE/modules/$${moddir} apps/vital/third_party/JUCE/modules/ ; \
+		cp -R $(JUCE_DIR)/modules/$${moddir} apps/vital/third_party/JUCE/modules/ ; \
 	done
 
 .PHONY:
-patch-juce-modules:
-	cd external/JUCE && patch -l -i ../../juce-6.1.4-diff-vital-modules.patch -p1
+patch-juce-modules: $(JUCE_DIR)/.stamp-vital-modules
+
+$(JUCE_DIR)/.stamp-vital-modules: $(PWD)/juce-6.1.4-diff-vital-modules.patch
+	cd $(JUCE_DIR) && patch --batch -l -i $(PWD)/juce-6.1.4-diff-vital-modules.patch -p1
+	touch $@
 
 .PHONY:
 replace-app-build-gradle:
