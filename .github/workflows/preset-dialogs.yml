@@ -1,0 +1,16 @@
+name: Preset dialog regression
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  preset-dialogs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch pinned Vital sources
+        run: git submodule update --init --depth 1 external/vital
+      - name: Check asynchronous preset flows with sanitizers
+        run: python3 tests/preset_file_dialogs.py

@@ -62,7 +62,7 @@ index fe0fd89..5913731 100644
        return OpenGLHelpers::translateVertexShaderToV3(code);
      #endif
 diff --git a/src/interface/editor_components/synth_preset_selector.cpp b/src/interface/editor_components/synth_preset_selector.cpp
-index 64da1d5..01e7fb0 100644
+index 64da1d5..4c230f6 100644
 --- a/src/interface/editor_components/synth_preset_selector.cpp
 +++ b/src/interface/editor_components/synth_preset_selector.cpp
 @@ -139,7 +139,8 @@ void SynthPresetSelector::newPresetSelected(File preset) {
@@ -75,46 +75,96 @@ index 64da1d5..01e7fb0 100644
    }
  }
  
-@@ -283,9 +284,8 @@ void SynthPresetSelector::importPreset() {
+@@ -281,43 +282,71 @@ void SynthPresetSelector::savePreset() {
+ 
+ void SynthPresetSelector::importPreset() {
    SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
-   File active_file = parent->getSynth()->getActiveFile();
-   FileChooser open_box("Open Preset", active_file, String("*.") + vital::kPresetExtension);
+-  File active_file = parent->getSynth()->getActiveFile();
+-  FileChooser open_box("Open Preset", active_file, String("*.") + vital::kPresetExtension);
 -  if (!open_box.browseForFileToOpen())
 -    return;
 -  
-+
-+  std::function<void(const FileChooser &)> callback = [&](const FileChooser &fc) {
-   File choice = open_box.getResult();
-   if (!choice.exists())
+-  File choice = open_box.getResult();
+-  if (!choice.exists())
++  if (parent == nullptr)
      return;
-@@ -294,10 +294,13 @@ void SynthPresetSelector::importPreset() {
-   if (!parent->getSynth()->loadFromFile(choice, error)) {
-     std::string name = ProjectInfo::projectName;
-     error = "There was an error open the preset. " + error;
+-  
+-  std::string error;
+-  if (!parent->getSynth()->loadFromFile(choice, error)) {
+-    std::string name = ProjectInfo::projectName;
+-    error = "There was an error open the preset. " + error;
 -    AlertWindow::showNativeDialogBox("Error opening preset", error, false);
-+    //AlertWindow::showNativeDialogBox("Error opening preset", error, false);
-+    AlertWindow::showMessageBoxAsync(AlertWindow::AlertIconType::WarningIcon, "Error opening preset", error);
-   }
-   else
-     parent->externalPresetLoaded(choice);
-+  };
-+  open_box.launchAsync(FileBrowserComponent::FileChooserFlags::openMode, callback);
+-  }
+-  else
+-    parent->externalPresetLoaded(choice);
++
++  File active_file = parent->getSynth()->getActiveFile();
++  preset_file_chooser_ = std::make_unique<FileChooser>(
++      "Open Preset", active_file, String("*.") + vital::kPresetExtension);
++  Component::SafePointer<SynthPresetSelector> safe_this(this);
++  preset_file_chooser_->launchAsync(FileBrowserComponent::openMode | FileBrowserComponent::canSelectFiles,
++      [safe_this](const FileChooser& chooser) {
++        if (safe_this == nullptr)
++          return;
++
++        File choice = chooser.getResult();
++        if (!choice.existsAsFile())
++          return;
++
++        auto* parent = safe_this->findParentComponentOfClass<SynthGuiInterface>();
++        if (parent == nullptr)
++          return;
++
++        std::string error;
++        if (!parent->getSynth()->loadFromFile(choice, error)) {
++          error = "There was an error opening the preset. " + error;
++          AlertWindow::showMessageBoxAsync(AlertWindow::AlertIconType::WarningIcon,
++                                          "Error opening preset", error);
++        }
++        else
++          parent->externalPresetLoaded(choice);
++      });
  }
  
  void SynthPresetSelector::exportPreset() {
-@@ -308,16 +311,17 @@ void SynthPresetSelector::exportPreset() {
-   SynthBase* synth = parent->getSynth();
-   File active_file = synth->getActiveFile();
-   FileChooser save_box("Export Preset", File(), String("*.") + vital::kPresetExtension);
+-  SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
+-  if (parent == nullptr)
++  if (findParentComponentOfClass<SynthGuiInterface>() == nullptr)
+     return;
+ 
+-  SynthBase* synth = parent->getSynth();
+-  File active_file = synth->getActiveFile();
+-  FileChooser save_box("Export Preset", File(), String("*.") + vital::kPresetExtension);
 -  if (!save_box.browseForFileToSave(true))
 -    return;
 -  
+-  synth->saveToFile(save_box.getResult().withFileExtension(vital::kPresetExtension));
+-  parent->externalPresetLoaded(synth->getActiveFile());
++  preset_file_chooser_ = std::make_unique<FileChooser>(
++      "Export Preset", File(), String("*.") + vital::kPresetExtension);
++  Component::SafePointer<SynthPresetSelector> safe_this(this);
++  preset_file_chooser_->launchAsync(FileBrowserComponent::saveMode | FileBrowserComponent::canSelectFiles |
++                                    FileBrowserComponent::warnAboutOverwriting,
++      [safe_this](const FileChooser& chooser) {
++        if (safe_this == nullptr)
++          return;
 +
-+  std::function<void(const FileChooser &)> callback = [&](const FileChooser &fc) {  
-   synth->saveToFile(save_box.getResult().withFileExtension(vital::kPresetExtension));
-   parent->externalPresetLoaded(synth->getActiveFile());
-+  };
-+  save_box.launchAsync(FileBrowserComponent::FileChooserFlags::saveMode, callback);
++        File destination = chooser.getResult();
++        if (destination == File())
++          return;
++
++        auto* parent = safe_this->findParentComponentOfClass<SynthGuiInterface>();
++        if (parent == nullptr)
++          return;
++
++        SynthBase* synth = parent->getSynth();
++        if (synth->saveToFile(destination.withFileExtension(vital::kPresetExtension)))
++          parent->externalPresetLoaded(synth->getActiveFile());
++        else
++          AlertWindow::showMessageBoxAsync(AlertWindow::AlertIconType::WarningIcon,
++                                          "Error exporting preset",
++                                          "The preset could not be saved. Choose a writable location and try again.");
++      });
  }
  
  void SynthPresetSelector::importBank() {
@@ -124,7 +174,7 @@ index 64da1d5..01e7fb0 100644
      File result = import_box.getResult();
      FileInputStream input_stream(result);
      if (input_stream.openedOk()) {
-@@ -338,7 +342,8 @@ void SynthPresetSelector::importBank() {
+@@ -338,7 +367,8 @@ void SynthPresetSelector::importBank() {
      }
      else
        LoadSave::writeErrorLog("Opening file stream to bank failed!");
@@ -134,7 +184,7 @@ index 64da1d5..01e7fb0 100644
  }
  
  void SynthPresetSelector::exportBank() {
-@@ -348,8 +353,10 @@ void SynthPresetSelector::exportBank() {
+@@ -348,8 +378,10 @@ void SynthPresetSelector::exportBank() {
  void SynthPresetSelector::loadTuningFile() {
    SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
    FileChooser load_box("Load Tuning", File(), Tuning::allFileExtensions());
@@ -146,7 +196,7 @@ index 64da1d5..01e7fb0 100644
  }
  
  void SynthPresetSelector::clearTuning() {
-@@ -404,12 +411,13 @@ void SynthPresetSelector::openSkinDesigner() {
+@@ -404,12 +436,13 @@ void SynthPresetSelector::openSkinDesigner() {
  
  void SynthPresetSelector::loadSkin() {
    FileChooser open_box("Open Skin", File(), String("*.") + vital::kSkinExtension);
@@ -162,6 +212,20 @@ index 64da1d5..01e7fb0 100644
  }
  
  void SynthPresetSelector::clearSkin() {
+diff --git a/src/interface/editor_components/synth_preset_selector.h b/src/interface/editor_components/synth_preset_selector.h
+index d5c9863..1d32f2e 100644
+--- a/src/interface/editor_components/synth_preset_selector.h
++++ b/src/interface/editor_components/synth_preset_selector.h
+@@ -129,6 +129,9 @@ class SynthPresetSelector : public SynthSection,
+     SaveSection* save_section_;
+     bool modified_;
+ 
++    // The asynchronous picker must outlive the menu action that opens it.
++    std::unique_ptr<FileChooser> preset_file_chooser_;
++
+     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SynthPresetSelector)
+ };
+ 
 diff --git a/src/interface/editor_sections/bank_exporter.cpp b/src/interface/editor_sections/bank_exporter.cpp
 index ac1a476..ef68def 100644
 --- a/src/interface/editor_sections/bank_exporter.cpp
